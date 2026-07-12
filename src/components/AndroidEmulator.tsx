@@ -94,6 +94,17 @@ export default function AndroidEmulator() {
   const [authError, setAuthError] = useState("");
   const [profileAuthError, setProfileAuthError] = useState("");
 
+  // Team Logo Renderer Helper
+  const TeamLogo = ({ logo, className = "" }: { logo: string, className?: string }) => {
+    if (logo && logo.startsWith('http')) {
+      return <img src={logo} className={`object-contain ${className.replace(/text-(xs|sm|base|lg|xl|2xl|3xl)/, (m) => {
+        const sizeMap: Record<string, string> = { 'text-xs': 'w-3 h-3', 'text-sm': 'w-4 h-4', 'text-base': 'w-5 h-5', 'text-lg': 'w-6 h-6', 'text-xl': 'w-7 h-7', 'text-2xl': 'w-8 h-8', 'text-3xl': 'w-10 h-10' };
+        return sizeMap[m] || 'w-5 h-5';
+      })}`} alt="logo" />;
+    }
+    return <span className={className}>{logo || '🛡️'}</span>;
+  };
+
   // Favorites state
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
@@ -126,6 +137,29 @@ export default function AndroidEmulator() {
   const [loginPassword, setLoginPassword] = useState("");
   const [profileLoginUser, setProfileLoginUser] = useState("");
   const [profileLoginPass, setProfileLoginPass] = useState("");
+
+  // Gesture Swipe State
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const touchEnd = e.changedTouches[0].clientX;
+    const distance = touchEnd - touchStart;
+
+    // Detect swipe from left edge (start < 50px) with minimum distance (80px)
+    if (touchStart < 50 && distance > 80) {
+      if (currentScreen === "match-detail") {
+        setCurrentScreen("dashboard");
+        setActiveDetailTab("stats");
+        setAiAnalysisResult("");
+      }
+    }
+    setTouchStart(null);
+  };
 
   // Handle Email/Password Login
   const handleEmailLogin = () => {
@@ -833,9 +867,13 @@ export default function AndroidEmulator() {
   });
 
   return (
-    <div className={`flex flex-col h-screen w-full overflow-hidden select-none ${
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className={`flex flex-col h-screen w-full overflow-hidden select-none ${
         themeMode === "amoled" ? "bg-black" : "bg-[#0A0A0F]"
-      }`}>
+      }`}
+    >
 
       {/* SCREEN ROUTER */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -1020,39 +1058,15 @@ export default function AndroidEmulator() {
               {/* TAB 0: HOME / PANORAMA */}
               {activeTab === 0 && (
                 <div className="p-4 space-y-4">
-                  {/* Highlights section Banner */}
-                  <div className="relative bg-gradient-to-r from-[#7C4DFF]/30 to-[#00E5FF]/20 border border-[#7C4DFF]/30 rounded-2xl p-4 overflow-hidden">
-                    <div className="relative z-10 flex flex-col gap-1 max-w-[170px]">
-                      <span className="text-[9px] font-black uppercase text-[#00E5FF] tracking-wider">Haftanın Maçı</span>
-                      <h3 className="text-xs font-black text-white">T1 - Gen.G LCK Büyük Finali</h3>
-                      <p className="text-[10px] text-gray-300">Harika oranlarla tahmin yapmaya başla.</p>
-                      <button 
-                        onClick={() => {
-                          const m = matches.find(m => m.id === "match-lol-1");
-                          if (m) {
-                            setSelectedMatch(m);
-                            setCurrentScreen("match-detail");
-                          }
-                        }}
-                        className="mt-2 w-max px-3 py-1.5 bg-[#00E5FF] text-black font-extrabold text-[10px] rounded-lg shadow shadow-cyan-500/20 active:scale-[0.98] transition-all"
-                      >
-                        Maçı İncele
-                      </button>
-                    </div>
-                    {/* Abstract design elements */}
-                    <div className="absolute right-[-10px] top-[-10px] w-24 h-24 bg-[#00E5FF]/10 rounded-full blur-xl"></div>
-                    <span className="absolute right-4 bottom-2 text-6xl opacity-20 select-none">🎮</span>
-                  </div>
-
                   {/* Top Live Match list */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Öne Çıkan Canlı Maçlar</span>
-                      <button onClick={() => setActiveTab(1)} className="text-[10px] text-[#00E5FF] font-bold">Tümü</button>
+                      <span className="text-[10px] uppercase font-black text-[#00E5FF] tracking-wider">Öne Çıkan Canlı Maçlar</span>
+                      <button onClick={() => setActiveTab(1)} className="text-[10px] text-gray-500 font-bold hover:text-white transition-all">Tümü</button>
                     </div>
 
                     <div className="space-y-2">
-                      {matches.slice(0, 3).map((match) => (
+                      {[...matches].sort((a, b) => ((b as any).viewerCount || 0) - ((a as any).viewerCount || 0)).slice(0, 3).map((match) => (
                         <div 
                           key={match.id}
                           onClick={() => {
@@ -1079,7 +1093,7 @@ export default function AndroidEmulator() {
                                 />
                               </button>
                               <div className="flex items-center gap-1">
-                                {match.timer === "CANLI" && <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse"></span>}
+                                {match.timer === "CANLI" && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
                                 <span className={`font-mono ${match.timer === "BİTTİ" ? "text-gray-500" : ""}`}>{match.timer}</span>
                               </div>
                             </div>
@@ -1088,18 +1102,18 @@ export default function AndroidEmulator() {
                           <div className="flex items-center justify-between">
                             <div className="flex flex-col gap-0.5">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs">{match.teamA.logo}</span>
+                                <TeamLogo logo={match.teamA.logo} className="text-xs" />
                                 <span className="text-[10px] text-white font-bold">{match.teamA.name}</span>
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs">{match.teamB.logo}</span>
+                                <TeamLogo logo={match.teamB.logo} className="text-xs" />
                                 <span className="text-[10px] text-white font-bold">{match.teamB.name}</span>
                               </div>
                             </div>
 
                             <div className="flex flex-col items-end gap-0.5 font-mono font-black text-[10px] text-[#00E5FF]">
-                              <span className={flashingTeamId === `${match.id}-A` ? "text-green-400 font-extrabold animate-pulse" : ""}>{match.teamA.score}</span>
-                              <span className={flashingTeamId === `${match.id}-B` ? "text-green-400 font-extrabold animate-pulse" : ""}>{match.teamB.score}</span>
+                              <span>{match.teamA.score}</span>
+                              <span>{match.teamB.score}</span>
                             </div>
                           </div>
                         </div>
@@ -1108,10 +1122,15 @@ export default function AndroidEmulator() {
                   </div>
 
                   {/* Favorites section on Home */}
-                  {favorites.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Favori Maçlarım</span>
-                      <div className="space-y-2.5">
+                  <div className="space-y-2">
+                    <span className="text-[10px] uppercase font-black text-yellow-500 tracking-wider">Favoriler</span>
+                    {favorites.length === 0 ? (
+                      <div className="bg-[#12121A]/30 border border-dashed border-white/5 rounded-xl py-6 flex flex-col items-center justify-center opacity-40 text-center px-4">
+                        <Star size={20} className="text-gray-600 mb-2" />
+                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Henüz favori maçınız yok. Maçları yıldızlayarak buraya ekleyebilirsiniz.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
                         {matches.filter(m => favorites.includes(m.id)).map((match) => (
                           <div
                             key={`fav-${match.id}`}
@@ -1125,47 +1144,38 @@ export default function AndroidEmulator() {
                               <span className="text-yellow-500 font-bold font-mono">{match.game}</span>
                               <div className="flex items-center gap-2">
                                 <button onClick={(e) => toggleFavorite(e, match.id)}>
-                                  <Star size={12} className="text-yellow-400 fill-yellow-400" />
+                                  <Star size={10} className="text-yellow-400 fill-yellow-400" />
                                 </button>
-                                <span className="text-gray-500 font-mono">{match.timer}</span>
+                                <span className={`font-mono ${match.timer === "BİTTİ" ? "text-gray-600" : "text-gray-400"}`}>{match.timer}</span>
                               </div>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-xs text-white font-bold">{match.teamA.name} vs {match.teamB.name}</span>
-                              <span className="text-xs font-mono font-black text-yellow-500">{match.teamA.score} - {match.teamB.score}</span>
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <TeamLogo logo={match.teamA.logo} className="text-xs" />
+                                  <span className="text-xs text-white font-bold">{match.teamA.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <TeamLogo logo={match.teamB.logo} className="text-xs" />
+                                  <span className="text-xs text-white font-bold">{match.teamB.name}</span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1 font-mono font-black text-xs text-yellow-500">
+                                <span>{match.teamA.score}</span>
+                                <span>{match.teamB.score}</span>
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* TAB 1: LIVE SCORES */}
               {activeTab === 1 && (
                 <div className="p-4 space-y-4">
-                  {/* Real-time status header */}
-                  <div className="flex justify-between items-center bg-[#12121A]/40 border border-[#1e1e28]/50 rounded-xl p-2.5">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase text-white tracking-wider flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#00E5FF] animate-pulse"></span>
-                        CANLI VERİ AKIŞI
-                      </span>
-                      <span className="text-[8px] text-gray-500 font-bold uppercase">
-                        {apiActive ? "PandaScore API Aktif" : "Premium Demo Modu"}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={fetchMatches}
-                      disabled={matchesLoading}
-                      className="px-2.5 py-1.5 bg-[#12121A] border border-[#1e1e28] hover:border-[#00E5FF]/20 rounded-lg active:scale-95 transition-all text-gray-400 hover:text-white flex items-center gap-1 text-[9px] font-extrabold"
-                    >
-                      <RefreshCw size={10} className={matchesLoading ? "animate-spin text-[#00E5FF]" : ""} />
-                      <span>{matchesLoading ? "Yenileniyor..." : "Yenile"}</span>
-                    </button>
-                  </div>
-
                   {/* Search and Category Scroll Container */}
                   <div className="space-y-3">
                     {/* Game Search Box (Mirrored from Akış) */}
@@ -1256,7 +1266,7 @@ export default function AndroidEmulator() {
                               {/* Team A */}
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-lg leading-none">{match.teamA.logo}</span>
+                                  <TeamLogo logo={match.teamA.logo} className="text-lg leading-none" />
                                   <span className="text-xs text-white font-bold">{match.teamA.name}</span>
                                 </div>
                                 <span className={`font-mono text-sm font-black text-white ${
@@ -1266,7 +1276,7 @@ export default function AndroidEmulator() {
                               {/* Team B */}
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-lg leading-none">{match.teamB.logo}</span>
+                                  <TeamLogo logo={match.teamB.logo} className="text-lg leading-none" />
                                   <span className="text-xs text-white font-bold">{match.teamB.name}</span>
                                 </div>
                                 <span className={`font-mono text-sm font-black text-white ${
@@ -1554,7 +1564,7 @@ export default function AndroidEmulator() {
 
                             <div className="grid grid-cols-12 items-center gap-4">
                               <div className="col-span-5 flex flex-col items-center text-center space-y-1">
-                                <span className="text-2xl leading-none">{match.teamA.logo}</span>
+                                <TeamLogo logo={match.teamA.logo} className="text-2xl leading-none" />
                                 <span className="text-[10px] text-white font-extrabold truncate w-full">{match.teamA.name}</span>
                               </div>
 
@@ -1567,7 +1577,7 @@ export default function AndroidEmulator() {
                               </div>
 
                               <div className="col-span-5 flex flex-col items-center text-center space-y-1">
-                                <span className="text-2xl leading-none">{match.teamB.logo}</span>
+                                <TeamLogo logo={match.teamB.logo} className="text-2xl leading-none" />
                                 <span className="text-[10px] text-white font-extrabold truncate w-full">{match.teamB.name}</span>
                               </div>
                             </div>
@@ -1613,12 +1623,8 @@ export default function AndroidEmulator() {
                       Aktif Maçlar
                     </button>
                     <button 
-                      onClick={() => setPredictSubTab("leaderboard")}
-                      className={`flex-1 pb-2 text-[11px] font-extrabold text-center transition-all relative opacity-40 grayscale-[0.5] ${
-                        predictSubTab === "leaderboard" 
-                          ? "border-b-2 border-[#00E5FF] text-[#00E5FF]" 
-                          : "text-gray-500 hover:text-gray-300"
-                      }`}
+                      onClick={() => {}}
+                      className="flex-1 pb-2 text-[11px] font-extrabold text-center transition-all relative opacity-30 grayscale pointer-events-none text-gray-500 cursor-not-allowed"
                     >
                       🏆 Liderlik Tablosu
                       <span className="absolute -top-1 right-2 bg-gray-500 text-black text-[7px] font-black px-1 rounded-sm rotate-12 shadow-sm">YAKINDA</span>
@@ -1647,7 +1653,7 @@ export default function AndroidEmulator() {
                             {/* Matchup row */}
                             <div className="grid grid-cols-3 items-center text-center">
                               <div className="flex flex-col items-center">
-                                <span className="text-2xl mb-1 select-none leading-none">{match.teamA.logo}</span>
+                                <TeamLogo logo={match.teamA.logo} className="text-2xl mb-1 select-none leading-none" />
                                 <span className="text-xs text-white font-bold max-w-[80px] truncate">{match.teamA.name}</span>
                                 <span className="text-[9px] text-gray-500 font-mono mt-0.5">Oran: {match.teamA.odds}</span>
                               </div>
@@ -1658,7 +1664,7 @@ export default function AndroidEmulator() {
                               </div>
 
                               <div className="flex flex-col items-center">
-                                <span className="text-2xl mb-1 select-none leading-none">{match.teamB.logo}</span>
+                                <TeamLogo logo={match.teamB.logo} className="text-2xl mb-1 select-none leading-none" />
                                 <span className="text-xs text-white font-bold max-w-[80px] truncate">{match.teamB.name}</span>
                                 <span className="text-[9px] text-gray-500 font-mono mt-0.5">Oran: {match.teamB.odds}</span>
                               </div>
@@ -2048,7 +2054,7 @@ export default function AndroidEmulator() {
                     handleGetTeamDetails(selectedMatch.teamA.id);
                   }}
                 >
-                  <span className="text-3xl select-none">{selectedMatch.teamA.logo}</span>
+                  <TeamLogo logo={selectedMatch.teamA.logo} className="text-3xl select-none" />
                   <span className="text-xs text-white font-extrabold mt-1 truncate max-w-[90px] border-b border-dashed border-gray-600">{selectedMatch.teamA.name}</span>
                 </div>
                 
@@ -2066,7 +2072,7 @@ export default function AndroidEmulator() {
                     handleGetTeamDetails(selectedMatch.teamB.id);
                   }}
                 >
-                  <span className="text-3xl select-none">{selectedMatch.teamB.logo}</span>
+                  <TeamLogo logo={selectedMatch.teamB.logo} className="text-3xl select-none" />
                   <span className="text-xs text-white font-extrabold mt-1 truncate max-w-[90px] border-b border-dashed border-gray-600">{selectedMatch.teamB.name}</span>
                 </div>
               </div>

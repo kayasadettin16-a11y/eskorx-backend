@@ -41,23 +41,13 @@ function getGeminiClient(): GoogleGenAI {
 
 // Local Fallbacks for robust, offline-ready operation
 function getLocalMatchAnalysis(match: any): string {
-  const game = match.game || "E-spor";
   const teamA = match.teamA?.name || "Takım A";
   const teamB = match.teamB?.name || "Takım B";
   const scoreA = match.teamA?.score ?? 0;
   const scoreB = match.teamB?.score ?? 0;
-  const timer = match.timer || match.mapInfo || "Mücadele Devam Ediyor";
-  const tournament = match.tournament || "Büyük Turnuva";
+  const timer = match.timer || "Devam Ediyor";
 
-  if (game === "CS2") {
-    return `${tournament} sahnesinde heyecan dorukta! ${teamA} [${scoreA}] - [${scoreB}] ${teamB} mücadelesinde, ${timer} itibariyle taktiksel hamleler ve eco rauntlarındaki disiplin kazananı belirleyecek.`;
-  } else if (game === "Valorant") {
-    return `Valorant Arenası adeta alev aldı! ${teamA} vs ${teamB} karşılaşmasında skor ${scoreA} - ${scoreB}. Spike yerleşimleri ve kritik ajan ultileriyle tansiyon ${timer} itibariyle zirvede.`;
-  } else if (game === "LoL" || game === "Dota 2") {
-    return `Vadi'de nefesler tutuldu! ${teamA} ve ${teamB} mücadelesinde durum ${scoreA} - ${scoreB}. ${timer} süresince harita hakimiyeti ve ejder/baron çevresindeki takım savaşları kaderi çizecek.`;
-  } else {
-    return `Dev randevuda ${teamA} ve ${teamB} kozlarını paylaşıyor! ${tournament} kapsamında skor ${scoreA} - ${scoreB}. Üstün mekanik beceriler ve anlık kararlarla nefes kesen bir ${game} izliyoruz.`;
-  }
+  return `İstatistiksel verilere göre ${teamA} (${scoreA}) ve ${teamB} (${scoreB}) arasındaki mücadelede ${timer} itibariyle dengeli bir dağılım gözlemleniyor. Mevcut skor tablosu ve harita hakimiyeti verileri, her iki tarafın da stratejik avantaj arayışında olduğunu göstermektedir.`;
 }
 
 function getLocalPredictionTip(match: any): string {
@@ -225,35 +215,57 @@ function mapPandaScoreMatch(m: any): any {
     roundHistory: "W-L-W-W-L-W"
   };
 
-  // Realistic viewer count simulation based on match metadata
+  // Smart Twitch Aggregator Simulation
+  // This logic simulates summing up viewers from official streams + costreamers
   const leagueName = (m.league?.name || "").toLowerCase();
-  const isMajor = leagueName.includes("major") || leagueName.includes("final") || leagueName.includes("worlds") || leagueName.includes("masters");
+  const isMajor = leagueName.includes("major") || leagueName.includes("final") || leagueName.includes("worlds") || leagueName.includes("masters") || leagueName.includes("lck") || leagueName.includes("vct") || leagueName.includes("lec") || leagueName.includes("esl");
 
-  // Base calculation: Randomized but tied to match ID for consistency
-  let baseViewers = (m.id % 89) * 150 + 800;
+  // Create a time-based seed for consistent but changing numbers
+  const now = new Date();
+  const timeSeed = now.getHours() * 60 + now.getMinutes();
+  const drift = Math.sin(timeSeed / 5) * 0.1; // Small drift every few mins
 
-  if (isMajor) baseViewers += 15000 + (m.id % 10) * 1000;
-  if (isLive) baseViewers *= 2.5;
-  if (m.game === "LoL" || m.game === "CS2") baseViewers *= 1.8;
+  let totalTwitchViewers = 0;
+
+  if (isLive) {
+    if (isMajor) {
+      // Tier 1: Multi-channel aggregation (Official + Co-streams)
+      // e.g. Official (80k) + Gaules/ibai/Caedrel (120k) + Others (40k)
+      const officialStream = (m.id % 50) * 1000 + 70000;
+      const coStreamers = (m.id % 30) * 2000 + 50000;
+      totalTwitchViewers = (officialStream + coStreamers) * (1 + drift);
+    } else {
+      // Tier 2: Smaller leagues or group stages
+      totalTwitchViewers = (m.id % 20) * 1500 + 8000;
+    }
+
+    // Game weight correction based on current Twitch Trends
+    if (game === "LoL") totalTwitchViewers *= 1.4; // LoL usually has massive multi-language reach
+    if (game === "CS2") totalTwitchViewers *= 1.2; // CS2 has huge regional fanbases (BR, RU)
+    if (game === "Valorant") totalTwitchViewers *= 1.1;
+  } else {
+    // Just a few thousand people waiting in chat
+    totalTwitchViewers = (m.id % 10) * 200 + 500;
+  }
 
   return {
     id: `pandascore-${m.id}`,
     game,
     tournament: m.league?.name || "Espor Turnuvası",
     stage: m.tournament?.name || "Grup Aşaması",
-    viewerCount: Math.round(baseViewers),
+    viewerCount: Math.round(totalTwitchViewers),
     scheduled_at: m.scheduled_at,
     teamA: {
       id: teamAObj.id,
       name: teamAObj.name,
-      logo: getTeamEmoji(teamAObj.name, teamAObj.id),
+      logo: teamAObj.image_url || getTeamEmoji(teamAObj.name, teamAObj.id),
       score: scoreA,
       odds: oddsA
     },
     teamB: {
       id: teamBObj.id,
       name: teamBObj.name,
-      logo: getTeamEmoji(teamBObj.name, teamBObj.id),
+      logo: teamBObj.image_url || getTeamEmoji(teamBObj.name, teamBObj.id),
       score: scoreB,
       odds: oddsB
     },
@@ -276,8 +288,8 @@ function getFallbackMatches() {
       game: "LoL",
       tournament: "LCK Summer 2026",
       stage: "Grand Final",
-      teamA: { name: "T1", logo: "🐯", score: 2, odds: 1.65 },
-      teamB: { name: "Gen.G", logo: "🦖", score: 2, odds: 2.15 },
+      teamA: { name: "T1", logo: "https://pandascore.co/teams/logos/126061/t1-logo.png", score: 2, odds: 1.65 },
+      teamB: { name: "Gen.G", logo: "https://pandascore.co/teams/logos/126062/gen-g-logo.png", score: 2, odds: 2.15 },
       timer: "34:12 (Harita 5)",
       mapInfo: "Map 5 (Inhibitor Push)",
       isLive: true,
@@ -315,8 +327,8 @@ function getFallbackMatches() {
       game: "CS2",
       tournament: "PGL Major Copenhagen 2026",
       stage: "Playoffs - Semis",
-      teamA: { name: "Natus Vincere", logo: "⚡", score: 12, odds: 1.85 },
-      teamB: { name: "G2 Esports", logo: "⚔️", score: 11, odds: 1.95 },
+      teamA: { name: "Natus Vincere", logo: "https://pandascore.co/teams/logos/3201/natus-vincere-logo.png", score: 12, odds: 1.85 },
+      teamB: { name: "G2 Esports", logo: "https://pandascore.co/teams/logos/3209/g2-esports-logo.png", score: 11, odds: 1.95 },
       timer: "Raund 24",
       mapInfo: "de_inferno",
       isLive: true,
@@ -351,8 +363,8 @@ function getFallbackMatches() {
       game: "Valorant",
       tournament: "VCT Masters Tokyo 2026",
       stage: "Group Stage",
-      teamA: { name: "Sentinels", logo: "👺", score: 1, odds: 1.72 },
-      teamB: { name: "Fnatic", logo: "🦊", score: 0, odds: 2.10 },
+      teamA: { name: "Sentinels", logo: "https://pandascore.co/teams/logos/126442/sentinels-logo.png", score: 1, odds: 1.72 },
+      teamB: { name: "Fnatic", logo: "https://pandascore.co/teams/logos/394/fnatic-logo.png", score: 0, odds: 2.10 },
       timer: "Map 2 (Icebox)",
       mapInfo: "Map 2 (Icebox) - Round 8",
       isLive: true,
@@ -387,8 +399,8 @@ function getFallbackMatches() {
       game: "Dota 2",
       tournament: "Riyadh Masters 2026",
       stage: "Playoffs - Quarterfinals",
-      teamA: { name: "Team Spirit", logo: "🐉", score: 0, odds: 1.50 },
-      teamB: { name: "Team Liquid", logo: "🐴", score: 1, odds: 2.45 },
+      teamA: { name: "Team Spirit", logo: "https://pandascore.co/teams/logos/126131/team-spirit-logo.png", score: 0, odds: 1.50 },
+      teamB: { name: "Team Liquid", logo: "https://pandascore.co/teams/logos/388/team-liquid-logo.png", score: 1, odds: 2.45 },
       timer: "22:15 (Game 2)",
       mapInfo: "Game 2 (Liquid Lead)",
       isLive: true,
@@ -417,8 +429,8 @@ function getFallbackMatches() {
       game: "FIFA",
       tournament: "FC Pro World Championship 2026",
       stage: "Group A Match",
-      teamA: { name: "Tekkz", logo: "🎮", score: 3, odds: 1.90 },
-      teamB: { name: "Nicolas99fc", logo: "🏆", score: 2, odds: 1.80 },
+      teamA: { name: "Tekkz", logo: "https://pandascore.co/teams/logos/131750/tekkz_2023.png", score: 3, odds: 1.90 },
+      teamB: { name: "Nicolas99fc", logo: "https://pandascore.co/teams/logos/132145/nicolas99fc_2023.png", score: 2, odds: 1.80 },
       timer: "78. Dakika",
       mapInfo: "Single Match",
       isLive: true,
@@ -439,8 +451,8 @@ function getFallbackMatches() {
       game: "Mobile Legends",
       tournament: "M6 World Championship",
       stage: "Group B Decider",
-      teamA: { name: "EVOS Legends", logo: "🦁", score: 1, odds: 1.70 },
-      teamB: { name: "RRQ Hoshi", logo: "👑", score: 1, odds: 2.05 },
+      teamA: { name: "EVOS Legends", logo: "https://pandascore.co/teams/logos/126048/evos-glory-5atof94x.png", score: 1, odds: 1.70 },
+      teamB: { name: "RRQ Hoshi", logo: "https://pandascore.co/teams/logos/126148/rrq-hoshi-logo.png", score: 1, odds: 2.05 },
       timer: "15:40 (Game 3)",
       mapInfo: "Game 3 (Turtle Fight)",
       isLive: true,
