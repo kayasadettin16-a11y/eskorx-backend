@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { App } from '@capacitor/app';
 import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  onAuthStateChanged,
+  signOut,
+  updateProfile,
+  sendPasswordResetEmail
+} from "firebase/auth";
+import { auth, googleProvider } from "../firebase";
+import {
   MOCK_MATCHES, 
   MOCK_POSTS, 
   MOCK_LEADERBOARD, 
@@ -94,6 +106,7 @@ export default function AndroidEmulator() {
   // Errors / feedback
   const [authError, setAuthError] = useState("");
   const [profileAuthError, setProfileAuthError] = useState("");
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // Team Logo Renderer Helper
   const TeamLogo = ({ logo, className = "" }: { logo: string, className?: string }) => {
@@ -193,7 +206,7 @@ export default function AndroidEmulator() {
   }, [currentScreen, activeTab]);
 
   // Handle Email/Password Login
-  const handleEmailLogin = () => {
+  const handleEmailLoginOld = () => {
     setAuthError("");
     const enteredUser = loginEmail.trim();
     const enteredPass = loginPassword;
@@ -222,7 +235,7 @@ export default function AndroidEmulator() {
   };
 
   // Handle Email Registration
-  const handleEmailRegister = () => {
+  const handleEmailRegisterOld = () => {
     setAuthError("");
     const name = regUsername.trim();
     const email = regEmail.trim();
@@ -428,15 +441,128 @@ export default function AndroidEmulator() {
   // Simulated live updates (Score flash animation)
   const [flashingTeamId, setFlashingTeamId] = useState<string | null>(null);
 
-  // Splash Screen Lifecycle
+  // Firebase Auth Observer & Splash Transition
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthLoading(false);
+      if (user) {
+        setUsername(user.displayName || user.email?.split('@')[0] || "Gamer");
+        setUserAvatar(user.photoURL || "👤");
+        setIsLoggedIn(true);
+        if (currentScreen === "login" || currentScreen === "onboarding" || currentScreen === "splash") {
+          setCurrentScreen("dashboard");
+        }
+      } else {
+        setIsLoggedIn(false);
+      }
+    });
+
+    // Handle Splash Screen transition
     if (currentScreen === "splash") {
       const timer = setTimeout(() => {
-        setCurrentScreen("onboarding");
+        if (!auth.currentUser) {
+          setCurrentScreen("onboarding");
+        }
       }, 2500);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        unsubscribe();
+      };
     }
+
+    return () => unsubscribe();
   }, [currentScreen]);
+
+  // Handle Email/Password Login
+  const handleEmailLogin = async () => {
+    setAuthError("");
+    const email = loginEmail.trim();
+    const pass = loginPassword;
+
+    if (!email || !pass) {
+      setAuthError("Lütfen e-posta ve şifrenizi girin.");
+      return;
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      setLoginEmail("");
+      setLoginPassword("");
+    } catch (err: any) {
+      if (err.code === "auth/user-not-found") setAuthError("Kullanıcı bulunamadı.");
+      else if (err.code === "auth/wrong-password") setAuthError("Şifre hatalı.");
+      else setAuthError("Giriş yapılamadı: " + err.message);
+    }
+  };
+
+  // Handle Email Registration
+  const handleEmailRegister = async () => {
+    setAuthError("");
+    const email = loginEmail.trim();
+    const pass = loginPassword;
+
+    if (!email || !pass) {
+      setAuthError("Lütfen e-posta ve şifre alanlarını doldurun.");
+      return;
+    }
+
+    if (pass.length < 6) {
+      setAuthError("Şifre en az 6 karakter olmalıdır.");
+      return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      const name = email.split('@')[0]; // Default name from email
+      await updateProfile(userCredential.user, { displayName: name });
+      setUsername(name);
+      setLoginEmail("");
+      setLoginPassword("");
+    } catch (err: any) {
+      if (err.code === "auth/email-already-in-use") setAuthError("Bu e-posta zaten kullanımda.");
+      else if (err.code === "auth/invalid-email") setAuthError("Geçersiz e-posta formatı.");
+      else setAuthError("Kayıt hatası: " + err.message);
+    }
+  };
+
+  // Handle Google Login
+  const handleGoogleLogin = async () => {
+    setAuthError("");
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      console.error("Google login error:", err);
+      if (err.code === "auth/popup-closed-by-user") {
+        setAuthError("Giriş penceresi kapatıldı.");
+      } else {
+        setAuthError("Google girişi hatası: " + err.code);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setCurrentScreen("login");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setAuthError("");
+    const email = loginEmail.trim();
+    if (!email) {
+      setAuthError("Lütfen e-posta adresinizi girin.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setAuthError("Şifre sıfırlama bağlantısı e-postanıza gönderildi!");
+    } catch (err: any) {
+      setAuthError("Hata: " + err.message);
+    }
+  };
 
   // Load real-time live esports matches on mount and periodically
   useEffect(() => {
@@ -998,24 +1124,45 @@ export default function AndroidEmulator() {
 
             {/* Login Form */}
             <div className="flex flex-col gap-4">
-              <div className="relative group">
-                <input
-                  type="text"
-                  placeholder="e-mail"
-                  value={loginEmail}
-                  readOnly
-                  className="w-full px-6 py-4 bg-[#1A1C22] text-white border border-white/10 text-base rounded-full focus:outline-none placeholder-gray-500 font-medium transition-all cursor-default"
-                />
-                <span className="absolute -top-3 -right-2 bg-gray-400 text-black text-[10px] font-black px-2 py-0.5 rounded rotate-12 shadow-lg">YAKINDA</span>
-              </div>
+              {authError && <p className="text-red-500 text-[10px] text-center font-bold">{authError}</p>}
+
+              <input
+                type="text"
+                placeholder="e-mail"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full px-6 py-4 bg-[#1A1C22] text-white border border-white/10 text-base rounded-full focus:outline-none placeholder-gray-500 font-medium transition-all"
+              />
 
               <input
                 type="password"
                 placeholder="Şifre"
                 value={loginPassword}
-                readOnly
-                className="w-full px-6 py-4 bg-[#1A1C22] text-white border border-white/10 text-base rounded-full focus:outline-none placeholder-gray-500 font-medium transition-all cursor-default"
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full px-6 py-4 bg-[#1A1C22] text-white border border-white/10 text-base rounded-full focus:outline-none placeholder-gray-500 font-medium transition-all"
               />
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleEmailLogin}
+                  className="flex-1 py-3 bg-[#1A1C22] text-white font-bold rounded-full border border-white/10 active:scale-95 transition-all"
+                >
+                  Giriş Yap
+                </button>
+                <button
+                  onClick={handleEmailRegister}
+                  className="flex-1 py-3 bg-[#00E5FF]/10 text-[#00E5FF] font-bold rounded-full border border-[#00E5FF]/20 active:scale-95 transition-all"
+                >
+                  Kayıt Ol
+                </button>
+              </div>
+
+              <button
+                onClick={handleForgotPassword}
+                className="text-[10px] text-gray-500 font-bold hover:text-[#00E5FF] transition-all"
+              >
+                Şifremi Unuttum
+              </button>
 
               <div className="relative flex py-4 items-center">
                 <div className="flex-grow border-t border-white/5"></div>
@@ -1025,13 +1172,13 @@ export default function AndroidEmulator() {
 
               {/* Social Login Grid */}
               <div className="space-y-3">
-                <div className="relative">
-                  <button className="w-full py-4 bg-[#1A1C22] text-white/40 font-bold text-base rounded-full flex items-center justify-center gap-3 border border-white/5 cursor-default">
-                    <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale opacity-40" alt="Google" />
-                    Google ile Giriş Yap
-                  </button>
-                  <span className="absolute -top-3 -right-2 bg-gray-400 text-black text-[10px] font-black px-2 py-0.5 rounded rotate-12 shadow-lg">YAKINDA</span>
-                </div>
+                <button
+                  onClick={handleGoogleLogin}
+                  className="w-full py-4 bg-[#1A1C22] text-white font-bold text-base rounded-full flex items-center justify-center gap-3 border border-white/5 active:scale-95 transition-all"
+                >
+                  <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                  Google ile Giriş Yap
+                </button>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="relative">
@@ -1913,91 +2060,57 @@ export default function AndroidEmulator() {
 
               {/* TAB 4: PROFILE */}
               {activeTab === 4 && (
-                <div className="flex-1 flex flex-col justify-center p-8 bg-[#0F0F14] overflow-y-auto custom-scrollbar w-full h-full">
-                  {/* Header Section */}
-                  <div className="flex flex-col items-center mb-10">
-                    <div className="w-20 h-20 bg-[#1A1C22] rounded-[24px] flex items-center justify-center shadow-xl border border-white/5">
-                      <span className="text-3xl font-black text-[#45D1E8] tracking-tighter">ESX</span>
+                <div className="flex-1 flex flex-col p-6 bg-[#0A0A0F] overflow-y-auto">
+                  {/* User Profile Header */}
+                  <div className="flex flex-col items-center mb-8">
+                    <div className="w-24 h-24 rounded-3xl bg-[#12121A] border border-[#00E5FF]/20 flex items-center justify-center text-4xl mb-4 shadow-xl">
+                      <TeamLogo logo={userAvatar} className="text-4xl" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white mt-6 tracking-tight">eSkorX Portal</h1>
-                    <p className="text-sm text-gray-400 mt-2 font-medium opacity-80">E-sporun yapay zeka destekli dünyası</p>
+                    <h2 className="text-xl font-black text-white">{username}</h2>
+                    <p className="text-xs text-gray-500 font-mono mt-1">{isLoggedIn ? "Doğrulanmış Pro Oyuncu" : "Ziyaretçi Modu"}</p>
                   </div>
 
-                  {/* Form fields (ReadOnly) */}
-                  <div className="flex flex-col gap-4">
-                    <div className="relative group">
-                      <input
-                        type="text"
-                        placeholder="e-mail"
-                        readOnly
-                        className="w-full px-6 py-4 bg-[#1A1C22] text-white border border-white/10 text-base rounded-full focus:outline-none placeholder-gray-500 font-medium transition-all cursor-default"
-                      />
-                      <span className="absolute -top-3 -right-2 bg-gray-400 text-black text-[10px] font-black px-2 py-0.5 rounded rotate-12 shadow-lg">YAKINDA</span>
+                  <div className="space-y-4">
+                    {/* Stats Card */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-[#12121A] border border-[#1e1e28] rounded-2xl p-4 flex flex-col items-center">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Bakiyeniz</span>
+                        <div className="flex items-center gap-1.5 text-[#00E5FF]">
+                          <Coins size={14} />
+                          <span className="text-lg font-black font-mono">{credits}</span>
+                        </div>
+                      </div>
+                      <div className="bg-[#12121A] border border-[#1e1e28] rounded-2xl p-4 flex flex-col items-center">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Başarı Oranı</span>
+                        <div className="flex items-center gap-1.5 text-yellow-500">
+                          <Target size={14} />
+                          <span className="text-lg font-black font-mono">%{userTotal > 0 ? Math.round((userCorrect / userTotal) * 100) : "0"}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="relative">
-                      <input
-                        type="password"
-                        placeholder="Şifre"
-                        readOnly
-                        className="w-full px-6 py-4 bg-[#1A1C22] text-white border border-white/10 text-base rounded-full focus:outline-none placeholder-gray-500 font-medium transition-all cursor-default"
-                      />
-                    </div>
-
-                    <div className="relative flex py-4 items-center">
-                      <div className="flex-grow border-t border-white/5"></div>
-                      <span className="flex-shrink mx-4 text-[10px] text-gray-500 font-bold uppercase tracking-widest">VEYA</span>
-                      <div className="flex-grow border-t border-white/5"></div>
-                    </div>
-
-                    {/* Social Login Grid (Disabled style) */}
-                    <div className="space-y-3">
-                      <div className="relative">
-                        <button className="w-full py-4 bg-[#1A1C22] text-white/40 font-bold text-base rounded-full flex items-center justify-center gap-3 border border-white/5 cursor-default">
-                          <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale opacity-40" alt="Google" />
-                          Google ile Giriş Yap
+                    {!isLoggedIn ? (
+                      <div className="bg-[#12121A] border border-[#00E5FF]/10 rounded-2xl p-6 text-center space-y-4">
+                        <Lock size={32} className="mx-auto text-[#00E5FF]/40" />
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold text-white">Hesap Özelliklerini Aç</p>
+                          <p className="text-[10px] text-gray-500 leading-relaxed">Profilinizi özelleştirmek ve başarılarınızı kaydetmek için giriş yapın.</p>
+                        </div>
+                        <button
+                          onClick={() => setCurrentScreen("login")}
+                          className="w-full py-3 bg-[#00E5FF] text-black font-black text-xs rounded-xl shadow-lg shadow-cyan-500/10 active:scale-[0.98] transition-all"
+                        >
+                          Giriş Sayfasına Git
                         </button>
-                        <span className="absolute -top-3 -right-2 bg-gray-400 text-black text-[10px] font-black px-2 py-0.5 rounded rotate-12 shadow-lg">YAKINDA</span>
                       </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="relative">
-                          <button className="w-full py-3.5 bg-[#2A3F4A] text-white/90 font-bold text-sm rounded-2xl flex items-center justify-center gap-2 opacity-80 cursor-default">
-                            <Gamepad2 size={16} /> Steam
-                          </button>
-                          <span className="absolute -top-2 -right-1 bg-gray-400 text-black text-[9px] font-black px-1.5 py-0.5 rounded rotate-12 shadow-lg">YAKINDA</span>
-                        </div>
-                        <div className="relative">
-                          <button className="w-full py-3.5 bg-[#6441a5] text-white/90 font-bold text-sm rounded-2xl flex items-center justify-center gap-2 opacity-80 cursor-default">
-                            <Radio size={16} /> Twitch
-                          </button>
-                          <span className="absolute -top-2 -right-1 bg-gray-400 text-black text-[9px] font-black px-1.5 py-0.5 rounded rotate-12 shadow-lg">YAKINDA</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Status Button (Logout trigger or just text) */}
-                    <button
-                      onClick={() => {
-                        setIsLoggedIn(false);
-                        setUsername("Ziyaretçi");
-                        setCurrentScreen("login");
-                      }}
-                      className="w-full mt-6 py-5 bg-gradient-to-r from-[#00E5FF] to-[#7C4DFF] text-black font-black text-lg rounded-2xl shadow-[0_0_20px_rgba(0,229,255,0.3)] active:scale-[0.98] transition-all flex items-center justify-center group"
-                    >
-                      Ziyaretçi Olarak Giriş Yapıldı
-                      <Sparkles size={20} className="ml-2 opacity-100 transition-all" />
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsLoggedIn(false);
-                        setCurrentScreen("login");
-                      }}
-                      className="text-[10px] text-gray-600 font-bold hover:text-red-400 transition-all mt-2"
-                    >
-                      (Oturumu Kapatmak İçin Dokunun)
-                    </button>
+                    ) : (
+                      <button
+                        onClick={handleLogout}
+                        className="w-full py-4 bg-red-500/10 text-red-500 border border-red-500/20 font-black text-xs rounded-xl active:scale-[0.95] transition-all flex items-center justify-center gap-2"
+                      >
+                        Oturumu Kapat
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
