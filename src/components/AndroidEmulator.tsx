@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { 
+import { App } from '@capacitor/app';
+import {
   MOCK_MATCHES, 
   MOCK_POSTS, 
   MOCK_LEADERBOARD, 
@@ -150,16 +151,46 @@ export default function AndroidEmulator() {
     const touchEnd = e.changedTouches[0].clientX;
     const distance = touchEnd - touchStart;
 
-    // Detect swipe from left edge (start < 50px) with minimum distance (80px)
-    if (touchStart < 50 && distance > 80) {
+    // Detect swipe from left edge (start < 100px) with minimum distance (80px)
+    if (touchStart < 100 && distance > 80) {
       if (currentScreen === "match-detail") {
         setCurrentScreen("dashboard");
         setActiveDetailTab("stats");
         setAiAnalysisResult("");
+      } else if (currentScreen === "dashboard" && activeTab !== 0) {
+        setActiveTab(0);
       }
     }
     setTouchStart(null);
   };
+
+  // Hardware Back Button Listener (Prevents Exiting)
+  useEffect(() => {
+    const handleBackButton = async () => {
+      await App.addListener('backButton', (data) => {
+        if (currentScreen === "match-detail") {
+          setCurrentScreen("dashboard");
+          setActiveDetailTab("stats");
+          setAiAnalysisResult("");
+        } else if (currentScreen === "dashboard") {
+          if (activeTab !== 0) {
+            setActiveTab(0);
+          } else {
+            // If on home tab, we let it exit or show a confirmation
+            // App.exitApp();
+          }
+        } else if (currentScreen === "login" || currentScreen === "onboarding") {
+          // Stay on screen or go to splash
+        }
+      });
+    };
+
+    handleBackButton();
+
+    return () => {
+      // Cleanup listeners if possible (addListener returns a Promise with remove method)
+    };
+  }, [currentScreen, activeTab]);
 
   // Handle Email/Password Login
   const handleEmailLogin = () => {
