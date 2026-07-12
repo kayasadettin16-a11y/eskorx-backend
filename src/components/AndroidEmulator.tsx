@@ -335,8 +335,8 @@ export default function AndroidEmulator() {
   
   // App Core Data states
   const [credits, setCredits] = useState(1000);
-  const [matches, setMatches] = useState<Match[]>(MOCK_MATCHES);
-  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [matchesLoading, setMatchesLoading] = useState(true);
   const [apiActive, setApiActive] = useState(false);
   const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -1089,8 +1089,15 @@ export default function AndroidEmulator() {
               {/* TAB 0: HOME / PANORAMA */}
               {activeTab === 0 && (
                 <div className="p-4 space-y-4">
-                  {/* Top Live Match list */}
-                  <div className="space-y-2">
+                  {matchesLoading && matches.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <RefreshCw size={24} className="text-[#00E5FF] animate-spin" />
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Maçlar Yükleniyor...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Top Live Match list */}
+                      <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] uppercase font-black text-[#00E5FF] tracking-wider">Öne Çıkan Canlı Maçlar</span>
                       <button onClick={() => setActiveTab(1)} className="text-[10px] text-gray-500 font-bold hover:text-white transition-all">Tümü</button>
@@ -1109,11 +1116,6 @@ export default function AndroidEmulator() {
                           <div className="flex justify-between items-center text-[8px] text-gray-400 mb-1.5">
                             <span className="text-[#00E5FF] font-bold font-mono">{match.game}</span>
                             <div className="flex items-center gap-2">
-                              {match.timer === "CANLI" && (
-                                <span className="text-[8px] text-[#00E5FF] font-mono bg-[#00E5FF]/10 px-1.5 py-0.5 rounded">
-                                  👁️ {(match as any).viewerCount ? `${((match as any).viewerCount / 1000).toFixed(1)}k` : "0.8k"}
-                                </span>
-                              )}
                               <button
                                 onClick={(e) => toggleFavorite(e, match.id)}
                                 className="p-1 -m-1"
@@ -1201,11 +1203,13 @@ export default function AndroidEmulator() {
                       </div>
                     )}
                   </div>
-                </div>
+                </>
               )}
+            </div>
+          )}
 
-              {/* TAB 1: LIVE SCORES */}
-              {activeTab === 1 && (
+          {/* TAB 1: LIVE SCORES */}
+          {activeTab === 1 && (
                 <div className="p-4 space-y-4">
                   {/* Search and Category Scroll Container */}
                   <div className="space-y-3">
@@ -1273,11 +1277,6 @@ export default function AndroidEmulator() {
                         >
                           <div className="flex justify-between items-center text-[9px] text-gray-500 mb-2.5">
                             <div className="flex items-center gap-2">
-                              {match.timer === "CANLI" && (
-                                <span className="text-[8px] text-[#00E5FF] font-mono bg-[#00E5FF]/10 px-1.5 py-0.5 rounded">
-                                  👁️ {(match as any).viewerCount ? `${((match as any).viewerCount / 1000).toFixed(1)}k` : "0.8k"}
-                                </span>
-                              )}
                               <button
                                 onClick={(e) => toggleFavorite(e, match.id)}
                                 className="p-1 -m-1"
@@ -1581,11 +1580,6 @@ export default function AndroidEmulator() {
                                 <span className="truncate max-w-[150px]">{match.tournament}</span>
                               </div>
                               <div className="flex items-center gap-1.5">
-                                {match.timer === "CANLI" && (
-                                  <span className="text-[8px] text-[#00E5FF] font-mono bg-[#00E5FF]/10 px-1.5 py-0.5 rounded mr-1">
-                                    👁️ {(match as any).viewerCount ? `${((match as any).viewerCount / 1000).toFixed(1)}k` : "0.8k"}
-                                  </span>
-                                )}
                                 {match.timer === "CANLI" && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
                                 <span className={`font-mono font-bold ${match.timer === "BİTTİ" ? "text-gray-500" : "text-white"}`}>
                                   {match.timer}
