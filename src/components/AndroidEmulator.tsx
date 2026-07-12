@@ -1115,21 +1115,21 @@ export default function AndroidEmulator() {
                         >
                           <div className="flex justify-between items-center text-[8px] text-gray-400 mb-1.5">
                             <span className="text-[#00E5FF] font-bold font-mono">{match.game}</span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={(e) => toggleFavorite(e, match.id)}
-                                className="p-1 -m-1"
-                              >
-                                <Star
-                                  size={10}
-                                  className={favorites.includes(match.id) ? "text-yellow-400 fill-yellow-400" : "text-gray-600"}
-                                />
-                              </button>
-                              <div className="flex items-center gap-1">
-                                {match.timer === "CANLI" && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
-                                <span className={`font-mono ${match.timer === "BİTTİ" ? "text-gray-500" : ""}`}>{match.timer}</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => toggleFavorite(e, match.id)}
+                                  className="p-1 -m-1"
+                                >
+                                  <Star
+                                    size={10}
+                                    className={favorites.includes(match.id) ? "text-yellow-400 fill-yellow-400" : "text-gray-600"}
+                                  />
+                                </button>
+                                <div className="flex items-center gap-1">
+                                  {match.timer === "CANLI" && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>}
+                                  <span className={`font-mono ${match.timer === "BİTTİ" ? "text-gray-500" : ""}`}>{match.timer}</span>
+                                </div>
                               </div>
-                            </div>
                           </div>
 
                           <div className="flex items-center justify-between">
