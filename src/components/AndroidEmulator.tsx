@@ -1522,7 +1522,9 @@ export default function AndroidEmulator() {
                           const isToday = dateStr === simulatedToday;
 
                           const dayName = d.toLocaleDateString('tr-TR', { weekday: 'short' });
-                          const dayAndMonth = `${day}.${month}`;
+                          const dayVal = d.getDate().toString().padStart(2, '0');
+                          const monthVal = (d.getMonth() + 1).toString().padStart(2, '0');
+                          const dayAndMonth = `${dayVal}.${monthVal}`;
 
                           return (
                             <button
