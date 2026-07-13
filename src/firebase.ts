@@ -1,10 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, EmailAuthProvider } from "firebase/auth";
 
-// Firebase configuration hardcoded for production reliability in Android
-// Note: These are public identifiers for Firebase, not secret keys.
+// Firebase Web SDK verileriyle birebir, karakter karakter kontrol edilmiş kesin yapılandırma
 const firebaseConfig = {
-  apiKey: "AIzaSyD" + "DbEr3VC3QjIlwv9C8DAL1RuwRZA-sJn8", // Split to avoid simple regex scanners
+  apiKey: "AIzaSyDDbEr3VC3QjIlwv9C5DAL1RuwRZA-sJn8", // 9C5DAL olarak düzeltildi
   authDomain: "escorx.firebaseapp.com",
   projectId: "escorx",
   storageBucket: "escorx.firebasestorage.app",
