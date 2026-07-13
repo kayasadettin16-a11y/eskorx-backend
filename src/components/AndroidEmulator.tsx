@@ -128,6 +128,14 @@ export default function AndroidEmulator() {
     return [];
   });
 
+  // Helper to format date as YYYY-MM-DD without timezone shifts
+  const formatDateStr = (date: Date) => {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   // Akış (Calendar) tab states
   const [simulatedToday, setSimulatedToday] = useState<string>("2026-07-12");
   const [selectedDate, setSelectedDate] = useState<string>("2026-07-12");
@@ -678,10 +686,7 @@ export default function AndroidEmulator() {
       const minutes = simulatedNow.getMinutes().toString().padStart(2, '0');
       setCurrentTime(`${hours}:${minutes}`);
 
-      const year = simulatedNow.getFullYear();
-      const month = (simulatedNow.getMonth() + 1).toString().padStart(2, '0');
-      const day = simulatedNow.getDate().toString().padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
+      const dateStr = formatDateStr(simulatedNow);
 
       setSimulatedToday(prev => {
         if (prev !== dateStr) {
@@ -1172,13 +1177,16 @@ export default function AndroidEmulator() {
 
               {/* Social Login Grid */}
               <div className="space-y-3">
-                <button
-                  onClick={handleGoogleLogin}
-                  className="w-full py-4 bg-[#1A1C22] text-white font-bold text-base rounded-full flex items-center justify-center gap-3 border border-white/5 active:scale-95 transition-all"
-                >
-                  <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                  Google ile Giriş Yap
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => {}}
+                    className="w-full py-4 bg-[#1A1C22] text-white/40 font-bold text-base rounded-full flex items-center justify-center gap-3 border border-white/5 cursor-default"
+                  >
+                    <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale opacity-40" alt="Google" />
+                    Google ile Giriş Yap
+                  </button>
+                  <span className="absolute -top-3 -right-2 bg-gray-400 text-black text-[10px] font-black px-2 py-0.5 rounded rotate-12 shadow-lg">YAKINDA</span>
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="relative">
@@ -1397,12 +1405,13 @@ export default function AndroidEmulator() {
                   <div className="space-y-3">
                     {(() => {
                       const filtered = matches.filter(m => {
+                        const isLiveMatch = m.timer === "CANLI";
                         const matchesCategory = selectedGameFilter === "Hepsi" || m.game === selectedGameFilter;
                         const matchesSearch = m.teamA.name.toLowerCase().includes(liveSearchQuery.toLowerCase()) ||
                                               m.teamB.name.toLowerCase().includes(liveSearchQuery.toLowerCase()) ||
                                               m.game.toLowerCase().includes(liveSearchQuery.toLowerCase()) ||
                                               m.tournament.toLowerCase().includes(liveSearchQuery.toLowerCase());
-                        return matchesCategory && matchesSearch;
+                        return isLiveMatch && matchesCategory && matchesSearch;
                       });
 
                       if (filtered.length === 0) {
@@ -1497,21 +1506,17 @@ export default function AndroidEmulator() {
                         className="p-2.5 bg-[#1b1b24] rounded-xl border border-white/5 text-[#00E5FF] active:scale-95 transition-all flex flex-col items-center justify-center min-w-[50px] relative"
                       >
                         <Calendar size={20} />
-                        <span className="text-[7px] font-black absolute bottom-1.5">{new Date(selectedDate).getDate()}</span>
+                        <span className="text-[7px] font-black absolute bottom-1.5">{selectedDate.split('-')[2]}</span>
                       </button>
 
                       {/* Middle: 5 Days around selected (Adjusted for mobile width) */}
                       <div className="flex-1 flex items-center justify-around overflow-hidden px-1">
                         {Array.from({ length: 5 }, (_, i) => {
-                          // Fix: Use the current simulated date as the reference point
                           const [y, m, d_val] = simulatedToday.split('-').map(Number);
                           const d = new Date(y, m - 1, d_val);
                           d.setDate(d.getDate() - 2 + i);
 
-                          const year = d.getFullYear();
-                          const month = (d.getMonth() + 1).toString().padStart(2, '0');
-                          const day = d.getDate().toString().padStart(2, '0');
-                          const dateStr = `${year}-${month}-${day}`;
+                          const dateStr = formatDateStr(d);
 
                           const isSelected = selectedDate === dateStr;
                           const isToday = dateStr === simulatedToday;
