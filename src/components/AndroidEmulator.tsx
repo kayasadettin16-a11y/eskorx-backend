@@ -669,10 +669,15 @@ export default function AndroidEmulator() {
     return () => clearInterval(interval);
   }, [currentScreen, matches]);
 
-  // Status Bar Clock State (Simulated for 12.07.2026 00:00)
+  // Status Bar Clock State (Simulated for current day in 2026)
   const [currentTime, setCurrentTime] = useState("00:00");
   const timeRefs = useRef({
-    baseDate: new Date("2026-07-12T00:00:00"),
+    // Use real current date but force year to 2026
+    baseDate: (() => {
+      const d = new Date();
+      d.setFullYear(2026);
+      return d;
+    })(),
     realStartTime: new Date()
   });
 
