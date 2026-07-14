@@ -1,9 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, EmailAuthProvider } from "firebase/auth";
 
-// Firebase Web SDK verileriyle birebir, karakter karakter kontrol edilmiş kesin yapılandırma
+// Firebase Console'dan kopyalanan kesin dogru yapilandirma
 const firebaseConfig = {
-  apiKey: "AIzaSyDDbEr3VC3QjIlwv9C5DAL1RuwRZA-sJn8", // 9C5DAL olarak düzeltildi
+  apiKey: "AIzaSyDDbEr3VC3QjIlwv9C5DAL1RuwRZA-sJn8",
   authDomain: "escorx.firebaseapp.com",
   projectId: "escorx",
   storageBucket: "escorx.firebasestorage.app",

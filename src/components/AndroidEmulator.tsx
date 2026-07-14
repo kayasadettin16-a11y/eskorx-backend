@@ -1324,7 +1324,9 @@ export default function AndroidEmulator() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {matches.filter(m => favorites.includes(m.id)).map((match) => (
+                        {[...matches, ...dateMatches].filter((m, index, self) =>
+                          favorites.includes(m.id) && self.findIndex(t => t.id === m.id) === index
+                        ).map((match) => (
                           <div
                             key={`fav-${match.id}`}
                             onClick={() => {
@@ -1387,22 +1389,28 @@ export default function AndroidEmulator() {
 
                     {/* Dynamic Category Scroll */}
                     <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                      {["Hepsi", ...Array.from(new Set(matches.map(m => m.game)))].map((g) => {
-                        const isSel = selectedGameFilter === g;
-                        return (
-                          <button
-                            key={g}
-                            onClick={() => setSelectedGameFilter(g)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold shrink-0 transition-all ${
-                              isSel
-                                ? "bg-[#00E5FF] text-black shadow shadow-cyan-400/20"
-                                : "bg-[#12121A] text-gray-400 border border-[#1d1d26] hover:text-white"
-                            }`}
-                          >
-                            {g}
-                          </button>
-                        );
-                      })}
+                      {(() => {
+                        const defaultGames = ["Hepsi", "CS2", "Valorant", "LoL", "Dota 2", "Mobile Legends"];
+                        const dynamicGames = Array.from(new Set(matches.map(m => m.game)));
+                        const allCategories = Array.from(new Set([...defaultGames, ...dynamicGames]));
+
+                        return allCategories.map((g) => {
+                          const isSel = selectedGameFilter === g;
+                          return (
+                            <button
+                              key={g}
+                              onClick={() => setSelectedGameFilter(g)}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold shrink-0 transition-all ${
+                                isSel
+                                  ? "bg-[#00E5FF] text-black shadow shadow-cyan-400/20"
+                                  : "bg-[#12121A] text-gray-400 border border-[#1d1d26] hover:text-white"
+                              }`}
+                            >
+                              {g}
+                            </button>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 
@@ -1734,6 +1742,15 @@ export default function AndroidEmulator() {
                           >
                             <div className="flex justify-between items-center text-[9px] text-gray-500 mb-2.5">
                               <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => toggleFavorite(e, match.id)}
+                                  className="p-1 -m-1"
+                                >
+                                  <Star
+                                    size={12}
+                                    className={favorites.includes(match.id) ? "text-yellow-400 fill-yellow-400" : "text-gray-600"}
+                                  />
+                                </button>
                                 <span className="text-[#00E5FF] font-black">{match.game}</span>
                                 <span className="text-gray-600">•</span>
                                 <span className="truncate max-w-[150px]">{match.tournament}</span>
@@ -1753,11 +1770,17 @@ export default function AndroidEmulator() {
                               </div>
 
                               <div className="col-span-2 flex flex-col items-center justify-center">
-                                <div className="text-sm font-mono font-black text-[#00E5FF] flex flex-col items-center">
-                                  <span>{match.teamA.score}</span>
-                                  <div className="h-[1px] w-4 bg-gray-800 my-0.5"></div>
-                                  <span>{match.teamB.score}</span>
-                                </div>
+                                {match.timer !== "CANLI" && match.timer !== "BİTTİ" ? (
+                                  <span className="text-[10px] font-mono font-black text-[#00E5FF] bg-[#00E5FF]/5 px-2 py-1 rounded-lg whitespace-nowrap">
+                                    {match.timer.includes(' ') ? match.timer.split(' ').slice(-1)[0] : match.timer}
+                                  </span>
+                                ) : (
+                                  <div className="text-sm font-mono font-black text-[#00E5FF] flex flex-col items-center">
+                                    <span>{match.teamA.score}</span>
+                                    <div className="h-[1px] w-4 bg-gray-800 my-0.5"></div>
+                                    <span>{match.teamB.score}</span>
+                                  </div>
+                                )}
                               </div>
 
                               <div className="col-span-5 flex flex-col items-center text-center space-y-1">
@@ -2574,7 +2597,9 @@ export default function AndroidEmulator() {
                     <div className="flex gap-1 mt-1.5">
                       {teamDetail.form.map((res: string, i: number) => (
                         <span key={i} className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-black ${
-                          res === "W" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+                          res === "W" ? "bg-green-500 text-white" :
+                          res === "D" ? "bg-yellow-500 text-white" :
+                          "bg-red-500 text-white"
                         }`}>
                           {res}
                         </span>
@@ -2622,8 +2647,14 @@ export default function AndroidEmulator() {
                         </div>
                         <div className="flex flex-col items-end">
                           <span className="text-xs font-mono font-black text-white">{m.score}</span>
-                          <span className={`text-[8px] font-black uppercase ${m.winner === teamDetail.name ? "text-green-500" : "text-red-500"}`}>
-                            {m.winner === teamDetail.name ? "GALİBİYET" : "MAĞLUBİYET"}
+                          <span className={`text-[8px] font-black uppercase ${
+                            m.winner === teamDetail.name ? "text-green-500" :
+                            !m.winner ? "text-yellow-500" :
+                            "text-red-500"
+                          }`}>
+                            {m.winner === teamDetail.name ? "GALİBİYET" :
+                             !m.winner ? "BERABERE" :
+                             "MAĞLUBİYET"}
                           </span>
                         </div>
                       </div>

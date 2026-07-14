@@ -182,7 +182,16 @@ function mapPandaScoreMatch(m: any): any {
     timerText = formatMatchTime(m.scheduled_at);
   }
 
-  const roles = game === "LoL" ? ["Top", "Jungle", "Mid", "ADC", "Support"] : ["IGL", "Rifler", "AWPer", "Rifler", "Entry"];
+  let roles = ["Player", "Player", "Player", "Player", "Player"];
+  if (game === "LoL") {
+    roles = ["Top", "Jungle", "Mid", "ADC", "Support"];
+  } else if (game === "Dota 2") {
+    roles = ["Carry", "Mid", "Offlane", "Support", "Hard Support"];
+  } else if (game === "Valorant") {
+    roles = ["Duelist", "Controller", "Initiator", "Sentinel", "Flex"];
+  } else if (game === "CS2") {
+    roles = ["IGL", "Rifler", "AWPer", "Rifler", "Entry"];
+  }
   const rosterA = [
     { name: `${teamAObj.name}_1`, role: roles[0], avatar: "👤" },
     { name: `${teamAObj.name}_2`, role: roles[1], avatar: "👤" },
@@ -417,10 +426,15 @@ function getFallbackMatches() {
           { name: "Yatoro", role: "Carry", avatar: "👤" },
           { name: "Larl", role: "Mid", avatar: "👤" },
           { name: "Collapse", role: "Offlane", avatar: "👑" },
+          { name: "Mira", role: "Support", avatar: "👤" },
+          { name: "Miposhka", role: "Hard Support", avatar: "👤" },
         ],
         teamB: [
           { name: "miCKe", role: "Carry", avatar: "👤" },
           { name: "Nisha", role: "Mid", avatar: "👑" },
+          { name: "33", role: "Offlane", avatar: "👤" },
+          { name: "Boxi", role: "Support", avatar: "👤" },
+          { name: "Insania", role: "Hard Support", avatar: "👤" },
         ],
       },
     },
@@ -576,8 +590,9 @@ app.get("/api/esports/team/:id", async (req, res) => {
     });
     const matchesData: any = await matchesRes.json();
 
-    // Map form (W/L)
+    // Map form (W/L/D)
     const form = matchesData.map((m: any) => {
+      if (!m.winner_id && m.status === "finished") return "D"; // Draw
       const isWinner = m.winner_id === parseInt(teamId);
       return isWinner ? "W" : "L";
     });
